@@ -66,6 +66,11 @@ trait HasTranslations
 
     public function getTranslation(string $key, string $locale, bool $useFallbackLocale = true): mixed
     {
+        // if column value is `null` then we have nothing to do, return `null`
+        if (is_null(parent::getAttributeValue($key))) {
+            return null;
+        }
+
         $normalizedLocale = $this->normalizeLocale($key, $locale, $useFallbackLocale);
 
         $isKeyMissingFromLocale = ($locale !== $normalizedLocale);
@@ -91,7 +96,7 @@ trait HasTranslations
             return $this->mutateAttribute($key, $translation);
         }
 
-        if($this->hasAttributeMutator($key)) {
+        if ($this->hasAttributeMutator($key)) {
             return $this->mutateAttributeMarkedAttribute($key, $translation);
         }
 
@@ -112,10 +117,11 @@ trait HasTranslations
     {
         if ($key !== null) {
             $this->guardAgainstNonTranslatableAttribute($key);
+            $translatableConfig = app(Translatable::class);
 
             return array_filter(
                 json_decode($this->getAttributes()[$key] ?? '' ?: '{}', true) ?: [],
-                fn ($value, $locale) => $this->filterTranslations($value, $locale, $allowedLocales),
+                fn ($value, $locale) => $this->filterTranslations($value, $locale, $allowedLocales, $translatableConfig->allowNullForTranslation, $translatableConfig->allowEmptyStringForTranslation),
                 ARRAY_FILTER_USE_BOTH,
             );
         }
@@ -141,7 +147,7 @@ trait HasTranslations
             $this->{$method}($value, $locale);
 
             $value = $this->attributes[$key];
-        } elseif($this->hasAttributeSetMutator($key)) { // handle new attribute mutator
+        } elseif ($this->hasAttributeSetMutator($key)) { // handle new attribute mutator
             $this->setAttributeMarkedMutatedAttributeValue($key, $value);
 
             $value = $this->attributes[$key];
@@ -275,13 +281,13 @@ trait HasTranslations
         return $locale;
     }
 
-    protected function filterTranslations(mixed $value = null, string $locale = null, array $allowedLocales = null): bool
+    protected function filterTranslations(mixed $value = null, string $locale = null, array $allowedLocales = null, bool $allowNull = false, bool $allowEmptyString = false): bool
     {
-        if ($value === null) {
+        if ($value === null && ! $allowNull) {
             return false;
         }
 
-        if ($value === '') {
+        if ($value === '' && ! $allowEmptyString) {
             return false;
         }
 
@@ -365,7 +371,7 @@ trait HasTranslations
     public function scopeWhereJsonContainsLocales(Builder $query, string $column, array $locales, mixed $value, string $operand = '='): void
     {
         $query->where(function (Builder $query) use ($column, $locales, $value, $operand) {
-            foreach($locales as $locale) {
+            foreach ($locales as $locale) {
                 $query->orWhere("{$column}->{$locale}", $operand, $value);
             }
         });
