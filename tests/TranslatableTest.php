@@ -831,3 +831,17 @@ it('translations macro meets expectations', function (mixed $expected, string|ar
     [['en' => 'english', 'nl' => 'english'], ['en', 'nl'], 'english'],
     [['en' => 'english', 'nl' => 'dutch'], ['en', 'nl'], ['english', 'dutch']],
 ]);
+
+it('can set an array list as value for translation using `setTranslation`', function () {
+    $this->testModel->setTranslation('name', 'en', ['testValue_en']);
+    $this->testModel->save();
+
+    expect($this->testModel->getTranslation('name', 'en'))->toEqual(['testValue_en']);
+});
+
+it('can set an array list as value for translation using default local', function () {
+    $this->testModel->name = ['testValue_en'];
+    $this->testModel->save();
+
+    expect($this->testModel->getTranslation('name', 'en'))->toEqual(['testValue_en']);
+});
